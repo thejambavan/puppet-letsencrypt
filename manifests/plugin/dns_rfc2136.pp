@@ -1,39 +1,28 @@
-# == Class: letsencrypt::plugin::dns_rfc2136
+# @summary Installs and configures the dns-rfc2136 plugin
 #
-#   This class installs and configures the Let's Encrypt dns-rfc2136 plugin.
-#   https://certbot-dns-rfc2136.readthedocs.io
+# This class installs and configures the Let's Encrypt dns-rfc2136 plugin.
+# https://certbot-dns-rfc2136.readthedocs.io
 #
-# === Parameters:
-#
-# [*server*]
-#   Target DNS server.
-# [*key_name*]
-#   TSIG key name.
-# [*key_secret*]
-#   TSIG key secret.
-# [*key_algorithm*]
-#   TSIG key algorithm.
-# [*port*]
-#   Target DNS port.
-# [*propagation_seconds*]
-#   Number of seconds to wait for the DNS server to propagate the DNS-01 challenge.
-# [*manage_package*]
-#   Manage the plugin package.
-# [*package_name*]
-#   The name of the package to install when $manage_package is true.
-# [*config_dir*]
-#   The path to the configuration directory.
+# @param server Target DNS server.
+# @param key_name TSIG key name.
+# @param key_secret TSIG key secret.
+# @param key_algorithm TSIG key algorithm.
+# @param port Target DNS port.
+# @param propagation_seconds Number of seconds to wait for the DNS server to propagate the DNS-01 challenge.
+# @param manage_package Manage the plugin package.
+# @param package_name The name of the package to install when $manage_package is true.
+# @param config_dir The path to the configuration directory.
 #
 class letsencrypt::plugin::dns_rfc2136 (
   Stdlib::Host $server,
   String[1] $key_name,
   String[1] $key_secret,
-  String[1] $key_algorithm         = $letsencrypt::dns_rfc2136_algorithm,
-  Stdlib::Port $port               = $letsencrypt::dns_rfc2136_port,
-  Integer $propagation_seconds     = $letsencrypt::dns_rfc2136_propagation_seconds,
+  String[1] $package_name,
+  String[1] $key_algorithm         = 'HMAC-SHA512',
+  Stdlib::Port $port               = 53,
+  Integer $propagation_seconds     = 10,
   Stdlib::Absolutepath $config_dir = $letsencrypt::config_dir,
-  Boolean $manage_package          = $letsencrypt::dns_rfc2136_manage_package,
-  String $package_name             = $letsencrypt::dns_rfc2136_package_name,
+  Boolean $manage_package          = true,
 ) {
 
   if $manage_package {
