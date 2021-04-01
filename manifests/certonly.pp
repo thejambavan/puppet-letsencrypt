@@ -48,6 +48,7 @@
 define letsencrypt::certonly (
   Enum['present','absent']                  $ensure               = 'present',
   Array[String[1]]                          $domains              = [$title],
+  String[1]                                 $cert_name            = $title,
   Boolean                                   $custom_plugin        = false,
   Letsencrypt::Plugin                       $plugin               = 'standalone',
   Array[Stdlib::Unixpath]                   $webroot_paths        = [],
@@ -67,7 +68,6 @@ define letsencrypt::certonly (
   Variant[String[1], Array[String[1]]]      $post_hook_commands   = [],
   Variant[String[1], Array[String[1]]]      $deploy_hook_commands = [],
 ) {
-
   if $plugin == 'webroot' and empty($webroot_paths) {
     fail("The 'webroot_paths' parameter must be specified when using the 'webroot' plugin")
   }
@@ -86,7 +86,6 @@ define letsencrypt::certonly (
   }
 
   case $plugin {
-
     'webroot': {
       $_plugin_args = zip($domains, $webroot_paths).map |$domain| {
         if $domain[1] {
@@ -95,26 +94,35 @@ define letsencrypt::certonly (
           "-d '${domain[0]}'"
         }
       }
-      $plugin_args = ["--cert-name '${title}'"] + $_plugin_args
+      $plugin_args = ["--cert-name '${cert_name}'"] + $_plugin_args
     }
 
     'dns-rfc2136': {
       require letsencrypt::plugin::dns_rfc2136
       $_domains = join($domains, '\' -d \'')
       $plugin_args = [
-        "--cert-name '${title}' -d",
+        "--cert-name '${cert_name}' -d",
         "'${_domains}'",
         "--dns-rfc2136-credentials ${letsencrypt::plugin::dns_rfc2136::config_dir}/dns-rfc2136.ini",
         "--dns-rfc2136-propagation-seconds ${letsencrypt::plugin::dns_rfc2136::propagation_seconds}",
       ]
     }
 
+    'dns-route53': {
+      require letsencrypt::plugin::dns_route53
+      $_domains = join($domains, '\' -d \'')
+      $plugin_args  = [
+        "--cert-name '${cert_name}' -d '${_domains}'",
+        "--dns-route53-propagation-seconds ${letsencrypt::plugin::dns_route53::propagation_seconds}",
+      ]
+    }
+
     default: {
       if $ensure == 'present' {
         $_domains = join($domains, '\' -d \'')
-        $plugin_args  = "--cert-name '${title}' -d '${_domains}'"
+        $plugin_args  = "--cert-name '${cert_name}' -d '${_domains}'"
       } else {
-        $plugin_args = "--cert-name '${title}'"
+        $plugin_args = "--cert-name '${cert_name}'"
       }
     }
   }
@@ -137,19 +145,19 @@ define letsencrypt::certonly (
   }
 
   # certbot uses --cert-name to generate the file path
-  $live_path_certname = regsubst($title, '^\*\.', '')
+  $live_path_certname = regsubst($cert_name, '^\*\.', '')
   $live_path = "${config_dir}/live/${live_path_certname}/cert.pem"
 
   $_command = flatten([
-    $letsencrypt_command,
-    $default_args,
-    $plugin_args,
-    $hook_args,
-    $additional_args,
+      $letsencrypt_command,
+      $default_args,
+      $plugin_args,
+      $hook_args,
+      $additional_args,
   ]).filter | $arg | { $arg =~ NotUndef and $arg != [] }
   $command = join($_command, ' ')
 
-  $execution_environment = [ "VENV_PATH=${letsencrypt::venv_path}", ] + $environment
+  $execution_environment = ["VENV_PATH=${letsencrypt::venv_path}",] + $environment
   $verify_domains = join(unique($domains), '\' \'')
 
   if $ensure == 'present' {
@@ -171,7 +179,7 @@ define letsencrypt::certonly (
   }
 
   if $manage_cron {
-    $maincommand = join($_command + ['--keep-until-expiring'], ' ')
+    $maincommand = join(["${letsencrypt_command} --keep-until-expiring"] + $_command[1,-1], ' ')
     $cron_script_ensure = $ensure ? { 'present' => 'file', default => 'absent' }
     $cron_ensure = $ensure
 
